@@ -7,7 +7,7 @@ import json
 import subprocess
 from pathlib import Path
 from base_adapter import BaseAdapter
-from cross_themes.utils.logger import setup_logger
+from utils.logger import setup_logger
 
 logger = setup_logger()
 

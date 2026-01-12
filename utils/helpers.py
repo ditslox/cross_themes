@@ -41,25 +41,23 @@ def display_color_palette(theme_data):
 
 def print_results(results):
     """Вывод результатов анализа."""
-    print("\n" + "=" * 60)
     print("РЕЗУЛЬТАТЫ АНАЛИЗА ИЗОБРАЖЕНИЯ".center(60))
-    print("=" * 60)
 
-    print(f"\n📁 Изображение: {results.get('source_image', 'N/A')}")
-    print(f"📏 Размер: {results.get('image_size', (0, 0))}")
+    print(f"\nИзображение: {results.get('source_image', 'N/A')}")
+    print(f"Размер: {results.get('image_size', (0, 0))}")
 
-    print("\n🎨 Доминирующие цвета:")
+    print("\nДоминирующие цвета:")
     colors = results.get('dominant_colors', [])
     for i, color in enumerate(colors[:8], 1):
         block = print_color_block(color, 6)
         print(f"  {i:2}. {block} {color}")
 
     primary, secondary = results.get('primary_pair', ('#000000', '#000000'))
-    print(f"\n🎯 Основная пара:")
+    print(f"\nОсновная пара:")
     print(f"    Основной:   {print_color_block(primary, 4)} {primary}")
     print(f"    Вторичный:  {print_color_block(secondary, 4)} {secondary}")
 
-    print("\n📊 Цветовые схемы:")
+    print("\nЦветовые схемы:")
     schemes = results.get('color_scheme', {})
     for scheme_name, scheme_colors in schemes.items():
         print(f"  {scheme_name.capitalize():12}: ", end="")
@@ -139,4 +137,4 @@ def create_project_structure():
             if not filepath.exists():
                 filepath.touch()
 
-    print("✓ Структура проекта создана")
+    print("Cтруктура проекта создана")

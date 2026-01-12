@@ -7,11 +7,20 @@ import sys
 import os
 import platform
 
+# Добавляем текущую директорию в путь поиска модулей
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core.color_analyzer import ColorAnalyzer
-from core.theme_manager import ThemeManager
-from utils.helpers import print_results, display_color_palette
+try:
+    from core.color_analyzer import ColorAnalyzer
+    from core.theme_manager import ThemeManager
+    from utils.helpers import print_results, display_color_palette
+except ImportError as e:
+    print(f"Ошибка импорта: {e}")
+    print("Убедитесь, что все файлы в правильных директориях:")
+    print("  core/color_analyzer.py")
+    print("  core/theme_manager.py")
+    print("  utils/helpers.py")
+    sys.exit(1)
 
 
 def detect_platform():
@@ -100,7 +109,6 @@ def main():
     args = parser.parse_args()
 
     if args.list_platforms:
-        # Просто покажем список платформ
         print("Доступные платформы:")
         platforms = ['gnome', 'kde', 'windows', 'android', 'macos', 'xfce', 'mate', 'cinnamon']
         for p in platforms:
@@ -146,15 +154,14 @@ def main():
 
         if args.analyze_only:
             return
-
-        # Применение темы
+            # Применение темы
         if args.apply:
             print(f"\nПрименение темы для {platform_name}...")
+            # Создаем менеджер тем с платформой
             manager = ThemeManager(platform_name)
 
             # Определение режима темы
             if args.mode == 'auto':
-                # Просто используем светлую тему по умолчанию
                 theme_mode = 'light'
             else:
                 theme_mode = args.mode
@@ -166,13 +173,13 @@ def main():
             success = manager.apply_theme(theme_data, args.image)
 
             if success:
-                print(f"✓ Тема успешно применена!")
+                print(f"Тема успешно применена!")
 
                 # Показ превью
                 print("\nЦветовая палитра примененной темы:")
                 display_color_palette(theme_data)
             else:
-                print("✗ Не удалось применить тему")
+                print("Не удалось применить тему")
 
     except Exception as e:
         print(f"Ошибка: {e}")
