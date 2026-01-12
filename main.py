@@ -161,8 +161,15 @@ def main():
             manager = ThemeManager(platform_name)
 
             # Определение режима темы
+            # В функции main(), после анализа изображения:
             if args.mode == 'auto':
-                theme_mode = 'light'
+                # Автоопределение на основе яркости основного цвета
+                import colorsys
+                primary_rgb = analyzer.hex_to_rgb(results['themes']['light']['primary'])
+                r, g, b = [x/255 for x in primary_rgb]
+                h, l, s = colorsys.rgb_to_hls(r, g, b)
+                # Если яркость меньше 50% - выбираем тёмную тему
+                theme_mode = 'dark' if l < 0.5 else 'light'
             else:
                 theme_mode = args.mode
 

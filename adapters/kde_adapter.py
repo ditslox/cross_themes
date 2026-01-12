@@ -1,114 +1,131 @@
 #!/usr/bin/env python3
 """
-Адаптер для KDE Plasma.
+Простой и рабочий адаптер для KDE Plasma.
 """
 import os
-import configparser
+import shutil
 from pathlib import Path
-from base_adapter import BaseAdapter
-from cross_themes.utils.logger import setup_logger
-
-logger = setup_logger()
+from adapters.base_adapter import BaseAdapter
 
 
 class KdeAdapter(BaseAdapter):
     def __init__(self):
         super().__init__()
-        self.plasma_config = Path.home() / '.config' / 'plasmarc'
-        self.kde_globals = Path.home() / '.config' / 'kdeglobals'
-
+        self.name = "KDE Adapter"
+    
     def apply_colors(self, theme_data):
-        """Применение цветов в KDE."""
+        """Применение цветов в KDE Plasma."""
+        print(f"KDE: Применение цветовой темы '{theme_data.get('name', 'Custom')}'")
+        
         try:
-            self.create_backup()
-
-            # 1. Обновление kdeglobals
-            self._update_kdeglobals(theme_data)
-
-            # 2. Обновление plasmarc
-            self._update_plasmarc(theme_data)
-
-            # 3. Обновление цветовой схемы
-            self._update_color_scheme(theme_data)
-
-            logger.info("Тема успешно применена для KDE Plasma")
-            return True
-
+            # 1. Создаем простую цветовую схему
+            scheme_created = self._create_color_scheme(theme_data)
+            
+            # 2. Устанавливаем темную/светлую тему
+            self._set_theme_mode(theme_data)
+            
+            if scheme_created:
+                print("KDE: Цветовая схема создана и применена")
+                return True
+            else:
+                print("KDE: Цветовая схема создана, но не применена автоматически")
+                print("KDE: Примените её вручную в настройках KDE")
+                return True
+                
         except Exception as e:
-            logger.error(f"Ошибка применения темы KDE: {e}")
+            print(f"KDE: Ошибка применения цветов: {e}")
             return False
-
-    def _update_kdeglobals(self, theme_data):
-        """Обновление файла kdeglobals."""
-        config = configparser.ConfigParser()
-
-        if self.kde_globals.exists():
-            config.read(self.kde_globals)
-
-        # Секция Colors
-        if 'Colors:Window' not in config.sections():
-            config.add_section('Colors:Window')
-
-        config.set('Colors:Window', 'BackgroundNormal', theme_data['background'])
-        config.set('Colors:Window', 'ForegroundNormal', theme_data['on_background'])
-
-        # Секция General
-        if 'General' not in config.sections():
-            config.add_section('General')
-
-        config.set('General', 'ColorScheme', f"Custom_{theme_data['name']}")
-        config.set('General', 'Name', theme_data['name'])
-
-        with open(self.kde_globals, 'w') as f:
-            config.write(f)
-
-    def _update_plasmarc(self, theme_data):
-        """Обновление файла plasmarc."""
-        config = configparser.ConfigParser()
-
-        if self.plasma_config.exists():
-            config.read(self.plasma_config)
-
-        # Секция Theme
-        if 'Theme' not in config.sections():
-            config.add_section('Theme')
-
-        config.set('Theme', 'name', f"custom-{theme_data['name'].lower()}")
-
-        with open(self.plasma_config, 'w') as f:
-            config.write(f)
-
-    def _update_color_scheme(self, theme_data):
-        """Создание цветовой схемы KDE."""
+    
+    def _create_color_scheme(self, theme_data):
+        """Создание простой цветовой схемы KDE."""
+        # Генерируем имя схемы
+        scheme_name = f"Custom_{theme_data.get('name', 'Theme').replace(' ', '_')}"
+        
+        # Создаем директорию для схем
         scheme_dir = Path.home() / '.local' / 'share' / 'color-schemes'
         scheme_dir.mkdir(parents=True, exist_ok=True)
-
-        scheme_file = scheme_dir / f"Custom_{theme_data['name']}.colors"
-
+        
+        # Файл цветовой схемы
+        scheme_file = scheme_dir / f"{scheme_name}.colors"
+        
+        # Получаем цвета
+        primary = theme_data.get('primary', '#2980b9')
+        background = theme_data.get('background', '#ffffff')
+        foreground = theme_data.get('on_background', '#000000')
+        
+        # Создаем простую цветовую схему
         scheme_content = f"""[ColorScheme]
-Name=Custom_{theme_data['name']}
-ColorPalette={theme_data['primary']},{theme_data['secondary']},{theme_data['accent_colors'][0] if theme_data['accent_colors'] else '#000000'}
+Name={scheme_name}
 
-[Colors:View]
-BackgroundNormal={theme_data['background']}
-ForegroundNormal={theme_data['on_background']}
+[Colors:Button]
+BackgroundNormal={primary}
+ForegroundNormal={foreground}
+
+[Colors:Selection]
+BackgroundNormal={primary}
+ForegroundNormal={foreground}
 
 [Colors:Window]
-BackgroundNormal={theme_data['surface']}
-ForegroundNormal={theme_data['on_surface']}
-"""
+BackgroundNormal={background}
+ForegroundNormal={foreground}
 
+[Colors:View]
+BackgroundNormal={background}
+ForegroundNormal={foreground}
+"""
+        
+        # Записываем файл
         with open(scheme_file, 'w') as f:
             f.write(scheme_content)
-
+        
+        print(f"KDE: Создана цветовая схема: {scheme_name}")
+        
+        # Пытаемся применить через команду
+        if self._check_command('plasma-apply-colorscheme'):
+            cmd = f"plasma-apply-colorscheme {scheme_name}"
+            if self._execute_command(cmd):
+                return True
+        
+        # Альтернатива через kwriteconfig5
+        if self._check_command('kwriteconfig5'):
+            cmd = f"kwriteconfig5 --file kdeglobals --group General --key ColorScheme {scheme_name}"
+            if self._execute_command(cmd):
+                return True
+        
+        return False
+    
+    def _set_theme_mode(self, theme_data):
+        """Устанавливаем светлую или темную тему."""
+        mode = theme_data.get('mode', 'light')
+        
+        if mode == 'dark' and self._check_command('kwriteconfig5'):
+            # Устанавливаем темную тему
+            cmd = "kwriteconfig5 --file kdeglobals --group General --key ColorScheme BreezeDark"
+            self._execute_command(cmd)
+            print("KDE: Установлена темная тема")
+        elif mode == 'light' and self._check_command('kwriteconfig5'):
+            # Устанавливаем светлую тему
+            cmd = "kwriteconfig5 --file kdeglobals --group General --key ColorScheme BreezeLight"
+            self._execute_command(cmd)
+            print("KDE: Установлена светлая тема")
+    
     def set_wallpaper(self, wallpaper_path):
-        """Установка обоев в KDE."""
+        """Установка обоев в KDE - ПРОСТОЙ РАБОЧИЙ МЕТОД."""
         if not os.path.exists(wallpaper_path):
-            logger.error(f"Файл обоев не найден: {wallpaper_path}")
+            print(f"KDE: Файл не найден: {wallpaper_path}")
             return False
-
-        try:
-            # Используем Plasma desktop scripting
+        
+        print(f"KDE: Установка обоев: {wallpaper_path}")
+        
+        # Метод 1: plasma-apply-wallpaperimage (лучший)
+        if self._check_command('plasma-apply-wallpaperimage'):
+            cmd = f"plasma-apply-wallpaperimage {wallpaper_path}"
+            if self._execute_command(cmd):
+                print("KDE: Обои установлены через plasma-apply-wallpaperimage")
+                return True
+        
+        # Метод 2: qdbus (старый метод)
+        if self._check_command('qdbus'):
             script = f"""
             var allDesktops = desktops();
             for (var i=0; i<allDesktops.length; i++) {{
@@ -118,81 +135,68 @@ ForegroundNormal={theme_data['on_surface']}
                 desktop.writeConfig("Image", "file://{wallpaper_path}");
             }}
             """
-
             # Сохраняем скрипт во временный файл
             import tempfile
             with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
                 f.write(script)
-                script_path = f.name
-
-            # Выполняем скрипт
-            cmd = f"qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{script}'"
-            self._execute_command(cmd)
-
-            # Альтернативный метод через dbus-send
-            cmd = f"dbus-send --session --dest=org.kde.plasmashell --type=method_call /PlasmaShell org.kde.PlasmaShell.evaluateScript 'string:{script}'"
-            self._execute_command(cmd)
-
-            logger.info(f"Обои установлены в KDE: {wallpaper_path}")
+                temp_path = f.name
+            
+            cmd = f"qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '$(cat {temp_path})'"
+            if self._execute_command(cmd):
+                os.unlink(temp_path)
+                print("KDE: Обои установлены через qdbus")
+                return True
+        
+        # Метод 3: копируем в стандартную папку и устанавливаем через конфиг
+        if self._check_command('kwriteconfig5'):
+            # Копируем обои в домашнюю директорию
+            home_wallpaper = Path.home() / '.local' / 'share' / 'wallpapers' / Path(wallpaper_path).name
+            home_wallpaper.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(wallpaper_path, home_wallpaper)
+            
+            # Устанавливаем через конфиг
+            cmd = f"kwriteconfig5 --file plasmarc --group Theme --key wallpaper '{home_wallpaper}'"
+            if self._execute_command(cmd):
+                print(f"KDE: Обои скопированы и установлены через конфиг: {home_wallpaper}")
+                return True
+        
+        # Метод 4: прямой скрипт Python с dbus
+        try:
+            import dbus
+            bus = dbus.SessionBus()
+            plasma = bus.get_object('org.kde.plasmashell', '/PlasmaShell')
+            script = f"""
+            var allDesktops = desktops();
+            for (var i=0; i<allDesktops.length; i++) {{
+                var desktop = allDesktops[i];
+                desktop.wallpaperPlugin = "org.kde.image";
+                desktop.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
+                desktop.writeConfig("Image", "file://{wallpaper_path}");
+            }}
+            """
+            plasma.evaluateScript(script, dbus_interface='org.kde.PlasmaShell')
+            print("KDE: Обои установлены через Python dbus")
             return True
-
-        except Exception as e:
-            logger.error(f"Ошибка установки обоев KDE: {e}")
-
-            # Альтернативный метод через конфигурацию
-            config_file = Path.home() / '.config' / 'plasma-org.kde.plasma.desktop-appletsrc'
-            if config_file.exists():
-                try:
-                    with open(config_file, 'r') as f:
-                        content = f.read()
-
-                    # Заменяем путь к обоям
-                    import re
-                    new_content = re.sub(
-                        r'Image=file://.*',
-                        f'Image=file://{wallpaper_path}',
-                        content
-                    )
-
-                    with open(config_file, 'w') as f:
-                        f.write(new_content)
-
-                    return True
-                except:
-                    pass
-
-            return False
-
+        except:
+            pass
+        
+        print("KDE: Не удалось установить обои автоматически")
+        print("KDE: Установите обои вручную в настройках KDE")
+        return False
+    
     def get_current_theme(self):
         """Получение текущей темы KDE."""
         theme = {}
-
+        
         try:
-            # Чтение kdeglobals
-            config = configparser.ConfigParser()
-            if self.kde_globals.exists():
-                config.read(self.kde_globals)
-
-                if 'General' in config.sections():
-                    theme['name'] = config.get('General', 'Name', fallback='')
-                    theme['color_scheme'] = config.get('General', 'ColorScheme', fallback='')
-
-            # Чтение plasmarc
-            config = configparser.ConfigParser()
-            if self.plasma_config.exists():
-                config.read(self.plasma_config)
-
-                if 'Theme' in config.sections():
-                    theme['plasma_theme'] = config.get('Theme', 'name', fallback='')
-
+            # Проверяем файл kdeglobals
+            kdeglobals = Path.home() / '.config' / 'kdeglobals'
+            if kdeglobals.exists():
+                with open(kdeglobals, 'r') as f:
+                    for line in f:
+                        if 'ColorScheme=' in line:
+                            theme['color_scheme'] = line.split('=')[1].strip()
+            
             return theme
-
-        except Exception as e:
-            logger.error(f"Ошибка получения темы KDE: {e}")
+        except:
             return {}
-
-    def refresh(self):
-        """Обновление KDE."""
-        # Перезапуск Plasma
-        cmd = "kquitapp5 plasmashell && plasmashell &"
-        self._execute_command(cmd)
